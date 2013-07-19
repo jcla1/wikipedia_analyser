@@ -53,7 +53,4 @@ func (p Page) String() string {
 	return fmt.Sprintf("Article title: %s\nArticle Size: %d\nArticle Restrictions: %s\n", p.Title, len(p.Text()), p.Restrictions)
 }
 
-type PageContainer struct {
-	// features go here
-	Page *Page
-}
+
