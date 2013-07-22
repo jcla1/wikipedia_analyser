@@ -28,7 +28,7 @@ type Revision struct {
 	Timestamp   string      `xml:"timestamp"`
 	Contributor Contributor `xml:"contributor"`
 	Comment     string      `xml:"comment"`
-	Text        []byte      `xml:"text"`
+	Text        string      `xml:"text"`
 }
 
 type Redirect struct {
@@ -45,12 +45,10 @@ type Page struct {
 	Revisions    []Revision `xml:"revision"`
 }
 
-func (p Page) Text() []byte {
+func (p Page) Text() string {
 	return p.Revisions[0].Text
 }
 
 func (p Page) String() string {
 	return fmt.Sprintf("Article title: %s\nArticle Size: %d\nArticle Restrictions: %s\n", p.Title, len(p.Text()), p.Restrictions)
 }
-
-
