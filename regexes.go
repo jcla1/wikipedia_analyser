@@ -8,18 +8,19 @@ import (
 type CleanFunc func(string) string
 
 var (
-	linkRegex         = regexp.MustCompile("\\[\\[(?:[^|\\]]*\\|)?([^\\]]+)\\]\\]")
-	fileRegex         = regexp.MustCompile("\\[\\[File:.?((?:\\[\\[[^\\[]*?\\]\\])|.)*?\\]\\]")
-	externalLinkRegex = regexp.MustCompile("(?:\\[([^\\s]*?)\\]|\\[[^\\s]+\\s*(.*?)\\])")
-	templateRegex     = regexp.MustCompile("(?s){{.*?}}")
-	headingRegex      = regexp.MustCompile("=+?([^=]+?)=+")
-	textStylingRegex  = regexp.MustCompile("'*(.?)'*")
-	refRegex          = regexp.MustCompile("(?s)(<ref(?:\\s[^>]*?)?\\/>|<ref(?:\\s[^>]*?)?>.*?<\\/\\s*ref\\s*?>)")
-	//refRegex          = regexp.MustCompile("(?s)(<[^>]+?\\/>|<[^>]+?>[^<>]*?<\\/[^>]+?>)")
-	commentRegex      = regexp.MustCompile("<!--.*?-->")
-	tagRegex          = regexp.MustCompile("(?s)(?:<[^>]+?\\/>|<[^>]+?>(.*?)<\\/\\s*?[^>]+?>)")
-	listSpaceRegex    = regexp.MustCompile("(?m)^[\\*\\s]*")
-	categoryRegex			= regexp.MustCompile("\\[\\[Category:(.*?)\\]\\]")
+	linkRegex                 = regexp.MustCompile("\\[\\[(?:[^|\\]]*\\|)?([^\\]]+)\\]\\]")
+	fileRegex                 = regexp.MustCompile("\\[\\[File:.?((?:\\[\\[[^\\[]*?\\]\\])|.)*?\\]\\]")
+	externalLinkCountingRegex = regexp.MustCompile("[^\\[]+(?:\\[([^\\[\\s]*?)\\]|\\[[^\\[\\s]+\\s*(.*?)\\])[^\\]]+")
+	externalLinkRegex         = regexp.MustCompile("(?:\\[([^\\s]*?)\\]|\\[[^\\s]+\\s*(.*?)\\])")
+	templateRegex             = regexp.MustCompile("(?s){{.*?}}")
+	headingRegex              = regexp.MustCompile("(?m)^=+?([^=]+?)=+")
+	textStylingRegex          = regexp.MustCompile("'*(.?)'*")
+	refRegex                  = regexp.MustCompile("(?s)(<ref(?:\\s[^>]*?)?\\/>|<ref(?:\\s[^>]*?)?>.*?<\\/\\s*ref\\s*?>)")
+	commentRegex              = regexp.MustCompile("<!--.*?-->")
+	tagRegex                  = regexp.MustCompile("(?s)(?:<[^>]+?\\/>|<[^>]+?>(.*?)<\\/\\s*?[^>]+?>)")
+	listSpaceRegex            = regexp.MustCompile("(?m)^[\\*\\s]*")
+	categoryRegex             = regexp.MustCompile("\\[\\[Category:(.*?)\\]\\]")
+	sentenceRegex             = regexp.MustCompile("(?m)[\\.!?]+(?:\\s|)")
 )
 
 func removeListsSpaces(s string) string {

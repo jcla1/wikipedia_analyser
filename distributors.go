@@ -6,7 +6,7 @@ import (
 )
 
 func distributor(r io.Reader) <-chan *PageContainer {
-	return containerDistributor(pageDistributor(r))
+	return containerDistributor(xmlPageDistributor(r))
 }
 
 // Wraps our pages in a struct that can hold features
@@ -32,7 +32,7 @@ func containerDistributor(input <-chan *Page) <-chan *PageContainer {
 }
 
 // Takes an io.Reader to read pages from
-func pageDistributor(r io.Reader) <-chan *Page {
+func xmlPageDistributor(r io.Reader) <-chan *Page {
 	decompressedStream := bzip2.NewReader(r)
 
 	parser, err := NewParser(decompressedStream)

@@ -7,30 +7,38 @@ package main
 type FeatureFunc func(*PageContainer)
 
 func BuildPipeline(input <-chan *PageContainer, funcs []FeatureFunc) <-chan *PageContainer {
-	c := input
+
+	out := input
 	for _, f := range funcs {
-		c = PipelineFuncWrapper(c, f)
+		out = PipelineFuncWrapper(out, f)
 	}
 
-	/*c := make(chan *PageContainer)
-	for _, f := range funcs {
-		a := PipelineFuncWrapper(input, f)
-		b := PipelineFuncWrapper(input, f)
-
-		go func() {
-			for {
-				select {
-					case v := <-a:
-						c <- v
-					case v := <-b:
-					  c <- v
+	/*
+		out := input
+		for _, f := range funcs {
+			//a, b, c, d := PipelineFuncWrapper(out, f), PipelineFuncWrapper(out, f), PipelineFuncWrapper(out, f), PipelineFuncWrapper(out, f)
+			a, b := PipelineFuncWrapper(out, f), PipelineFuncWrapper(out, f)
+			tmp := make(chan *PageContainer)
+			go func() {
+				for {
+					select {
+					// select the routine that is "ready" for execution
+					case s := <-a:
+						tmp <- s
+					case s := <-b:
+						tmp <- s
+						case s := <-c:
+							tmp <- s
+						case s := <-d:
+							tmp <- s
+					}
 				}
-			}
-		}()
+			}()
 
-	}*/
-
-	return c
+			out = tmp
+		}
+	*/
+	return out
 }
 
 func PipelineFuncWrapper(input <-chan *PageContainer, f FeatureFunc) <-chan *PageContainer {
