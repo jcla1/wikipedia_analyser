@@ -5,26 +5,16 @@ import (
 	"encoding/gob"
 	"flag"
 	"fmt"
-	"math"
+	"io"
 	"os"
 	"runtime"
-	"time"
-	"io"
 )
+
+var _ = gzip.NewReader
+var _ = fmt.Println
 
 var dumpFileName = flag.String("dumpFile", "data/latest.xml.bz2", "the dump file to work with")
 var N = flag.Int("N", 100, "number of pages to read for timing")
-
-func testTiming(pages <-chan *PageContainer) {
-	n := *N
-	t0 := time.Now()
-	for i := 0; i < n; i++ {
-		<-pages
-	}
-	t1 := time.Now()
-	fmt.Printf("It took %v for %d articles. (Avg. %fs)\n", t1.Sub(t0), n, t1.Sub(t0).Seconds()/float64(n))
-	return
-}
 
 func WriteMap(mapChannel <-chan map[string]int, w io.Writer) <-chan bool {
 	c := make(chan bool)
@@ -143,27 +133,6 @@ func BuildRedirectMap() (chan<- *PageContainer, <-chan map[string]int) {
 	return input, mapChannel
 }
 
-func calcStdDeviation(input <-chan *PageContainer, n int, f func(*PageContainer) float64) float64 {
-	vals := make([]float64, n)
-	mean := float64(0)
-	for i := 0; i < len(vals); i++ {
-		page := <-input
-		if page.IsRedirect {
-			i -= 1
-			continue
-		} else {
-			vals[i] = f(page)
-			mean += f(page)
-		}
-	}
-	mean = mean / float64(len(vals))
-	devSum := float64(0)
-	for _, v := range vals {
-		devSum += (float64(v) - mean) * (float64(v) - mean)
-	}
-	return math.Sqrt(devSum / float64(len(vals)))
-}
-
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	flag.Parse()
@@ -174,11 +143,17 @@ func main() {
 	}
 	defer file.Close()
 
-	pages := distributor(file)
+	pages := distributorFromXML(file)
 
 	pages = BuildPipeline(pages, pipelineFuncs)
 
-	featuredFile, err := os.Create("data/featured.gob")
+	//testTiming(1, func() {
+	//	featureStats(pages, 100)
+	//})
+	<-pages
+	fmt.Println(<-pages)
+
+	/*featuredFile, err := os.Create("data/featured.gob")
 	if err != nil {
 		panic(err)
 	}
@@ -194,7 +169,6 @@ func main() {
 	defer normalCompressed.Close()
 	defer normalFile.Close()
 
-
 	redirectFile, err := os.Create("data/redirect.gob")
 	if err != nil {
 		panic(err)
@@ -205,49 +179,60 @@ func main() {
 
 	featuredChannel, featuredWriter := ArticleWriter(featuredCompressed)
 	normalChannel, normalWriter := ArticleWriter(normalCompressed)
+	//featuredChannel, featuredWriter := ArticleWriter(featuredFile)
+	//normalChannel, normalWriter := ArticleWriter(normalFile)
 
 	redirectChannel, mapChannel := BuildRedirectMap()
 	mapWriter := WriteMap(mapChannel, redirectCompressed)
+	//mapWriter := WriteMap(mapChannel, redirectFile)
 
 	c := make(chan *PageContainer, 10)
 
-	for i := 0; i < 10; i++ {
-		c <- <-pages
-	}
+	go func() {
+		for i := 0; i < 500; i++ {
+			c <- <-pages
+		}
+		close(c)
+	}()
 
-	DistrbuteArticles(c, featuredChannel, redirectChannel, normalChannel)
-	close(c)
-	time.Sleep(10*time.Second)
-	<-mapWriter
-	<-featuredWriter
-	<-normalWriter
+	testTiming(1, func() {
+		DistrbuteArticles(c, featuredChannel, redirectChannel, normalChannel)
 
-/*
-		file, err := os.Open("data/normal.gob")
+		// Wait for all writers to finish
+		<-mapWriter
+		<-featuredWriter
+		<-normalWriter
+
+		// Close all the gzip streams
+		// I tried defering the close
+		// call but kept getting some EOF errors
+		featuredCompressed.Close()
+		normalCompressed.Close()
+		redirectCompressed.Close()
+	})*/
+
+	/*func() {
+		file, err := os.Open("data/featured.gob")
 		if err != nil {
 			panic(err)
 		}
 		defer file.Close()
 
-		r, err := gzip.NewReader(file)
+		decompressedStream, err := gzip.NewReader(file)
 		if err != nil {
 			panic(err)
 		}
 
-		var v *PageContainer
-		decoder := gob.NewDecoder(r)
-		err = decoder.Decode(&v)
-		if err != nil {
-			panic(err)
-		}
-		fmt.Println(v)
-*/
-	//testTiming(pages)
-	/*
-		N := 1000
+		featuredPages := distributorFromGob(decompressedStream)
 
-		fmt.Println("AvgSentenceLen:", calcStdDeviation(pages, N, func(page *PageContainer) float64 {
-			return page.AvgSentenceLen
-		}))
-	*/
+		for fa := range featuredPages {
+			fmt.Println(fa)
+		}
+
+		//featureStats(featuredPages, 5)
+	}()*/
+
+	/*testTiming(*N, func() {
+		<-pages
+	})*/
 }

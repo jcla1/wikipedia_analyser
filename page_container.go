@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"github.com/agonopol/go-stem/stemmer"
 	"strings"
 )
 
@@ -11,14 +13,18 @@ var (
 		(*PageContainer).SetIsFeatured,
 		(*PageContainer).SetPlainText,
 		(*PageContainer).SetSentences,
-		(*PageContainer).SetWords,
 		(*PageContainer).SetNumSentences,
 		(*PageContainer).SetAvgSentenceLen,
+		(*PageContainer).SetWords,
 		(*PageContainer).SetNumWords,
 		(*PageContainer).SetAvgWordLen,
+		(*PageContainer).SetUnigrams,
+		(*PageContainer).SetBigrams,
+		(*PageContainer).SetTrigrams,
 		(*PageContainer).SetNumHeadings,
 		(*PageContainer).SetNumExternalLinks,
 		(*PageContainer).SetNumLinks,
+		(*PageContainer).SetLinkDensity,
 		(*PageContainer).SetNumRefs,
 		(*PageContainer).SetNumCategories,
 	}
@@ -42,7 +48,16 @@ var (
 )
 
 type PageContainer struct {
-	PlainText        string
+	PlainText string
+
+	Sentences []string
+
+	Words [][]string
+
+	AvgSentenceLen float64
+	AvgWordLen     float64
+	LinkDensity    float64
+
 	NumLinks         int
 	NumExternalLinks int
 	NumHeadings      int
@@ -50,12 +65,13 @@ type PageContainer struct {
 	NumCategories    int
 	NumSentences     int
 	NumWords         int
-	AvgSentenceLen   float64
-	AvgWordLen       float64
-	Sentences        []string
-	Words            []string
-	IsFeatured       bool
-	IsRedirect       bool
+
+	Unigrams map[string]int
+	Bigrams  map[string]int
+	Trigrams map[string]int
+
+	IsFeatured bool
+	IsRedirect bool
 
 	// actual data
 	Page *Page
@@ -64,17 +80,22 @@ type PageContainer struct {
 func (container *PageContainer) String() string {
 	return fmt.Sprintf(`
 Title: %s
-# of Links: %d
+# of Links:          %d
+Link Density:        %f
 # of external Links: %d
-# of Headings: %d
-# of Refrences: %d
-# of Categories: %d
-# of Sentences: %d
+# of Headings:       %d
+# of Refrences:      %d
+# of Categories:     %d
+# of Sentences:      %d
 Avg Sentence Length: %f
-# of Words: %d
-Avg Word Length: %f`,
+# of Words:          %d
+Avg Word Length:     %f
+# of Unigrams:       %d
+# of Bigrams:        %d
+# of Trigrams:       %d`,
 		container.Page.Title,
 		container.NumLinks,
+		container.LinkDensity,
 		container.NumExternalLinks,
 		container.NumHeadings,
 		container.NumRefs,
@@ -83,6 +104,9 @@ Avg Word Length: %f`,
 		container.AvgSentenceLen,
 		container.NumWords,
 		container.AvgWordLen,
+		len(container.Unigrams),
+		len(container.Bigrams),
+		len(container.Trigrams),
 	)
 }
 
@@ -110,13 +134,22 @@ func (container *PageContainer) SetPlainText() {
 }
 
 func (container *PageContainer) SetSentences() {
-	container.Sentences = sentenceRegex.Split(container.PlainText, -1)
-	for i := 0; i < len(container.Sentences); i++ {
-		v := container.Sentences[i]
+	sentences := sentenceRegex.Split(container.PlainText, -1)
+
+	removeIndicies := make([]int, 0)
+	for i, v := range sentences {
 		if len(v) < 2 {
-			container.Sentences = append(container.Sentences[:i], container.Sentences[i+1:]...)
+			removeIndicies = append(removeIndicies, i)
 		}
 	}
+
+	counter := 0
+	for _, i := range removeIndicies {
+		sentences = append(sentences[:i-counter], sentences[i-counter+1:]...)
+		counter += 1
+	}
+
+	container.Sentences = sentences
 }
 
 func (container *PageContainer) SetNumSentences() {
@@ -133,21 +166,78 @@ func (container *PageContainer) SetAvgSentenceLen() {
 }
 
 func (container *PageContainer) SetWords() {
+	var words []string
+	var removeIndicies []int
+	var counter int
+
 	for _, v := range container.Sentences {
-		container.Words = append(container.Words, strings.Fields(v)...)
+		words = strings.Fields(v)
+		removeIndicies = make([]int, 0)
+		for i, w := range words {
+			words[i] = punctuationRegex.ReplaceAllString(w, "")
+
+			if len(words[i]) == 0 {
+				removeIndicies = append(removeIndicies, i)
+			} else {
+				//words[i] = strings.ToLower(words[i])
+				words[i] = string(stemmer.Stem([]byte(strings.ToLower(words[i]))))
+			}
+		}
+		counter = 0
+		for _, i := range removeIndicies {
+			words = append(words[:i-counter], words[i-counter+1:]...)
+			counter += 1
+		}
+
+		container.Words = append(container.Words, words)
 	}
 }
 
 func (container *PageContainer) SetNumWords() {
-	container.NumWords = len(container.Words)
+	for _, words := range container.Words {
+		container.NumWords += len(words)
+	}
 }
 
 func (container *PageContainer) SetAvgWordLen() {
 	sum := 0
-	for _, v := range container.Words {
-		sum += len(v)
+	for _, words := range container.Words {
+		for _, w := range words {
+			sum += len(w)
+		}
 	}
-	container.AvgWordLen = float64(sum) / float64(len(container.Words))
+	container.AvgWordLen = float64(sum) / float64(container.NumWords)
+}
+
+func (container *PageContainer) SetUnigrams() {
+	container.Unigrams = make(map[string]int)
+	for _, words := range container.Words {
+		for _, w := range words {
+			container.Unigrams[w] = container.Unigrams[w] + 1
+		}
+	}
+}
+
+func (container *PageContainer) SetBigrams() {
+	container.Bigrams = make(map[string]int)
+	var w string
+	for _, words := range container.Words {
+		for i := 0; i < len(words)-1; i++ {
+			w = words[i] + " " + words[i+1]
+			container.Bigrams[w] = container.Bigrams[w] + 1
+		}
+	}
+}
+
+func (container *PageContainer) SetTrigrams() {
+	container.Trigrams = make(map[string]int)
+	var w string
+	for _, words := range container.Words {
+		for i := 0; i < len(words)-2; i++ {
+			w = words[i] + " " + words[i+1] + " " + words[i+2]
+			container.Trigrams[w] = container.Trigrams[w] + 1
+		}
+	}
 }
 
 func (container *PageContainer) SetNumExternalLinks() {
@@ -168,4 +258,15 @@ func (container *PageContainer) SetNumRefs() {
 
 func (container *PageContainer) SetNumCategories() {
 	container.NumCategories = strings.Count(container.Page.Text(), "[[Category:")
+}
+
+// Just takes internal Links into account
+func (container *PageContainer) SetLinkDensity() {
+	buf := bytes.NewBufferString("")
+
+	for _, v := range linkRegex.FindAllStringSubmatch(container.Page.Text(), -1) {
+		buf.WriteString(" " + v[1] + " ")
+	}
+
+	container.LinkDensity = float64(len(strings.Fields(buf.String()))) / float64(container.NumWords)
 }

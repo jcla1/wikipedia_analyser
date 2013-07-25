@@ -2,16 +2,42 @@ package main
 
 import (
 	"compress/bzip2"
+	"encoding/gob"
 	"io"
 )
 
-func distributor(r io.Reader) <-chan *PageContainer {
+func distributorFromGob(r io.Reader) <-chan *PageContainer {
+	decoder := gob.NewDecoder(r)
+	channel := make(chan *PageContainer, 50)
+
+	go func() {
+		var v *PageContainer
+		var err error
+
+		for {
+			err = decoder.Decode(&v)
+
+			if err == io.EOF {
+				close(channel)
+				return
+			} else if err != nil {
+				panic(err)
+			}
+
+			channel <- v
+		}
+	}()
+
+	return channel
+}
+
+func distributorFromXML(r io.Reader) <-chan *PageContainer {
 	return containerDistributor(xmlPageDistributor(r))
 }
 
 // Wraps our pages in a struct that can hold features
 func containerDistributor(input <-chan *Page) <-chan *PageContainer {
-	output := make(chan *PageContainer)
+	output := make(chan *PageContainer, 50)
 	go func() {
 		var page *Page
 		var ok bool
