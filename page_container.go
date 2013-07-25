@@ -79,7 +79,7 @@ type PageContainer struct {
 
 func (container *PageContainer) String() string {
 	return fmt.Sprintf(`
-Title: %s
+Title:               %s
 # of Links:          %d
 Link Density:        %f
 # of external Links: %d
