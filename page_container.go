@@ -213,7 +213,7 @@ func (container *PageContainer) SetUnigrams() {
 	container.Unigrams = make(map[string]int)
 	for _, words := range container.Words {
 		for _, w := range words {
-			container.Unigrams[w] = container.Unigrams[w] + 1
+			container.Unigrams[w] += 1
 		}
 	}
 }
@@ -224,7 +224,7 @@ func (container *PageContainer) SetBigrams() {
 	for _, words := range container.Words {
 		for i := 0; i < len(words)-1; i++ {
 			w = words[i] + " " + words[i+1]
-			container.Bigrams[w] = container.Bigrams[w] + 1
+			container.Bigrams[w] += 1
 		}
 	}
 }
@@ -235,7 +235,7 @@ func (container *PageContainer) SetTrigrams() {
 	for _, words := range container.Words {
 		for i := 0; i < len(words)-2; i++ {
 			w = words[i] + " " + words[i+1] + " " + words[i+2]
-			container.Trigrams[w] = container.Trigrams[w] + 1
+			container.Trigrams[w] += 1
 		}
 	}
 }
