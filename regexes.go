@@ -21,7 +21,7 @@ var (
 	listSpaceRegex            = regexp.MustCompile("(?m)^[\\*\\s]*")
 	categoryRegex             = regexp.MustCompile("\\[\\[Category:(.*?)\\]\\]")
 	sentenceRegex             = regexp.MustCompile("(?m)[\\.!?]+(?:\\s|)")
-	punctuationRegex          = regexp.MustCompile(`[0-9\t\n\v\f\r\s!?+\-–—/:;,'_@$%&*~#\(\)<>\{\}\[\]\|]`)
+	punctuationRegex          = regexp.MustCompile(`([tʃɨ⇔ʰ९²␡ᑎ⟨υι⟩0-9\t\n\v\f\r\s!?+\-–—−/\\\:;,'“”‘’_^=@$£€%&*~#\(\)<>\{\}\[\]\|]|\p{Greek}|\p{Arabic})`)
 )
 
 func removeListsSpaces(s string) string {

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"./ngram"
 	"bytes"
 	"fmt"
 	"github.com/agonopol/go-stem/stemmer"
@@ -55,7 +56,7 @@ type PageContainer struct {
 	Words [][]string
 
 	AvgSentenceLen float64
-	AvgWordLen     float64
+	AvgWordLen     float64 // not quite sure if I should use this, it's always around 5.1 chars
 	LinkDensity    float64
 
 	NumLinks         int
@@ -66,9 +67,9 @@ type PageContainer struct {
 	NumSentences     int
 	NumWords         int
 
-	Unigrams map[string]int
-	Bigrams  map[string]int
-	Trigrams map[string]int
+	Unigrams ngram.LanguageModel
+	Bigrams  ngram.LanguageModel
+	Trigrams ngram.LanguageModel
 
 	IsFeatured bool
 	IsRedirect bool
