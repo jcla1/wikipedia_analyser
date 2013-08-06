@@ -8,12 +8,12 @@ type FeatureFunc func(*PageContainer)
 
 func BuildPipeline(input <-chan *PageContainer, funcs []FeatureFunc) <-chan *PageContainer {
 
-	out := input
+	/*out := input
 	for _, f := range funcs {
 		out = PipelineFuncWrapper(out, f)
-	}
+	}*/
 
-	/*out := input
+	out := input
 	for _, f := range funcs {
 		a, b, c, d := PipelineFuncWrapper(out, f), PipelineFuncWrapper(out, f), PipelineFuncWrapper(out, f), PipelineFuncWrapper(out, f)
 		//a, b := PipelineFuncWrapper(out, f), PipelineFuncWrapper(out, f)
@@ -26,16 +26,16 @@ func BuildPipeline(input <-chan *PageContainer, funcs []FeatureFunc) <-chan *Pag
 					tmp <- s
 				case s := <-b:
 					tmp <- s
-					case s := <-c:
-						tmp <- s
-					case s := <-d:
-						tmp <- s
+				case s := <-c:
+					tmp <- s
+				case s := <-d:
+					tmp <- s
 				}
 			}
 		}()
 
 		out = tmp
-	}*/
+	}
 
 	return out
 }

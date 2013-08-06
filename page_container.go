@@ -1,10 +1,10 @@
 package main
 
 import (
-	"./ngram"
 	"bytes"
 	"fmt"
 	"github.com/agonopol/go-stem/stemmer"
+	"github.com/jcla1/matrix"
 	"strings"
 )
 
@@ -67,12 +67,14 @@ type PageContainer struct {
 	NumSentences     int
 	NumWords         int
 
-	Unigrams ngram.LanguageModel
-	Bigrams  ngram.LanguageModel
-	Trigrams ngram.LanguageModel
+	Unigrams map[string]int
+	Bigrams  map[string]int
+	Trigrams map[string]int
 
 	IsFeatured bool
 	IsRedirect bool
+
+	NNOutput *matrix.Matrix
 
 	// actual data
 	Page *Page

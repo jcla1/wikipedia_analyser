@@ -1,10 +1,9 @@
 package main
 
 import (
-	"./ngram"
 	"flag"
 	"fmt"
-	"os"
+	//"os"
 	"runtime"
 )
 
@@ -16,6 +15,10 @@ var (
 	featuredFilePath string
 	normalFilePath   string
 	redirectFilePath string
+	nnFilePath       string
+	unigramFilePath  string
+	bigramFilePath   string
+	trigramFilePath  string
 )
 
 func init() {
@@ -24,13 +27,22 @@ func init() {
 	flag.StringVar(&featuredFilePath, "featuredFile", "data/featured.gob.gzip", "place to store the featured pages")
 	flag.StringVar(&normalFilePath, "normalFile", "data/normal.gob.gzip", "place to store the normal pages")
 	flag.StringVar(&redirectFilePath, "redirectFile", "data/redirect.gob.gzip", "place to store the redirect map")
+
+	flag.StringVar(&nnFilePath, "nnFile", "data/nn.gob", "place to put the trained NN")
+
+	flag.StringVar(&unigramFilePath, "unigramFile", "data/unigrams.gob", "place to put the Unigrams")
+	flag.StringVar(&bigramFilePath, "bigramFile", "data/bigrams.gob", "place to put the Bigrams")
+	flag.StringVar(&trigramFilePath, "trigramFile", "data/trigrams.gob", "place to put the Trigrams")
 }
 
 func main() {
-	runtime.GOMAXPROCS(runtime.NumCPU())
+	//runtime.GOMAXPROCS(runtime.NumCPU())
+	runtime.GOMAXPROCS(3)
 	flag.Parse()
 
-	file, err := os.Open(dumpFileName)
+	Part1()
+
+	/*file, err := os.Open(dumpFileName)
 	if err != nil {
 		panic(err)
 	}
@@ -40,28 +52,5 @@ func main() {
 
 	pages = BuildPipeline(pages, pipelineFuncs)
 
-	c := make(chan ngram.LanguageModel)
-
-	go func() {
-		for i := 0; i < 10; i++ {
-			c <- (<-pages).Unigrams
-		}
-		close(c)
-	}()
-
-	lmChannel := ngram.BuildLanguageModel(c)
-	fmt.Println(len(<-lmChannel))
-
-	/*file, err := os.Open(path)
-	  if err != nil {
-	    panic(err)
-	  }
-	  defer file.Close()
-
-	  featuredPage := openCompressedPages(file)
-		for fa := range featuredPages {
-			fmt.Println(fa)
-		}
-
-		//featureStats(featuredPages, 5)*/
+	featureStats(pages, 10)*/
 }

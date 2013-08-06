@@ -62,6 +62,11 @@ func saveSplitPages(input <-chan *PageContainer) {
 	redirectCompressed.Close()
 }
 
+func saveLanguageModel(input <-chan map[string]int, lmFile io.Writer) {
+	mapWriter := WriteMap(input, lmFile)
+	<-mapWriter
+}
+
 func WriteMap(mapChannel <-chan map[string]int, w io.Writer) <-chan bool {
 	c := make(chan bool)
 	encoder := gob.NewEncoder(w)
