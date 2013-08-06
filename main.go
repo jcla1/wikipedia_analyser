@@ -39,8 +39,10 @@ func main() {
 	//runtime.GOMAXPROCS(runtime.NumCPU())
 	runtime.GOMAXPROCS(3)
 	flag.Parse()
-
-	Part1()
+	
+	testTiming(1, func() {
+		Part1()
+	})
 
 	/*file, err := os.Open(dumpFileName)
 	if err != nil {
