@@ -11,7 +11,7 @@ import (
 
 const (
 	numHidden   int = 3
-	numFeatures int = 8
+	numFeatures int = 9
 	numIter     int = 200
 )
 
@@ -49,7 +49,7 @@ func SaveNN(n *NN, w io.Writer) {
 	}
 }
 
-func EvaluateNN(n *NN, input <-chan *PageContainer) <-chan *PageContainer {
+func EvaluateNN(n *NN, input <-chan *PageContainer, redirectMap map[string]int) <-chan *PageContainer {
 	c := make(chan *PageContainer)
 
 	go func() {
@@ -74,6 +74,7 @@ func EvaluateNN(n *NN, input <-chan *PageContainer) <-chan *PageContainer {
 					float64(container.NumCategories),
 					float64(container.NumSentences),
 					float64(container.NumWords),
+					float64(redirectMap[container.Page.Title]),
 
 					//float64(len(container.Unigrams)),
 					//float64(len(container.Bigrams)),
@@ -92,8 +93,8 @@ func EvaluateNN(n *NN, input <-chan *PageContainer) <-chan *PageContainer {
 	return c
 }
 
-func BuildTrainNN(input <-chan *PageContainer) *NN {
-	d := FeatureSlicer(FeatureVectors(input))
+func BuildTrainNN(input <-chan *PageContainer, redirectMap map[string]int) *NN {
+	d := FeatureSlicer(FeatureVectors(input, redirectMap))
 	n := NewNN([]int{numFeatures, numHidden, numFeatures}, 0)
 	TrainNN(n, d, numIter)
 
@@ -176,7 +177,7 @@ func UnrollParams(vals []*matrix.Matrix) *matrix.Matrix {
 	return matrix.FromSlice(unrolled, 1, len(unrolled))
 }
 
-func FeatureVectors(input <-chan *PageContainer) <-chan nn.TrainingExample {
+func FeatureVectors(input <-chan *PageContainer, redirectMap map[string]int) <-chan nn.TrainingExample {
 	outputChannel := make(chan nn.TrainingExample)
 
 	go func() {
@@ -203,6 +204,7 @@ func FeatureVectors(input <-chan *PageContainer) <-chan nn.TrainingExample {
 					float64(container.NumCategories),
 					float64(container.NumSentences),
 					float64(container.NumWords),
+					float64(redirectMap[container.Page.Title]),
 
 					//float64(len(container.Unigrams)),
 					//float64(len(container.Bigrams)),

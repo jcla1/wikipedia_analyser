@@ -3,8 +3,6 @@ package main
 import (
 	"compress/gzip"
 	"encoding/gob"
-	"encoding/json"
-	"fmt"
 	"io"
 	"os"
 )
@@ -33,31 +31,26 @@ func saveSplitPages(input <-chan *PageContainer) {
 	normalCompressed := gzip.NewWriter(normalFile)
 	defer normalFile.Close()
 
-	/*redirectFile, err := os.Create(redirectFilePath)
+	redirectFile, err := os.Create(redirectFilePath)
 	if err != nil {
 		panic(err)
 	}
-	//redirectCompressed := gzip.NewWriter(redirectFile)
-	defer redirectFile.Close()*/
+	redirectCompressed := gzip.NewWriter(redirectFile)
+	defer featuredFile.Close()
 
 	featuredChannel, featuredWriter := ArticleWriter(featuredCompressed)
 	normalChannel, normalWriter := ArticleWriter(normalCompressed)
 	//featuredChannel, featuredWriter := ArticleWriter(featuredFile)
 	//normalChannel, normalWriter := ArticleWriter(normalFile)
 
-	/*
-		redirectChannel, mapChannel := BuildRedirectMap()
-		mapWriter := WriteMap(mapChannel, redirectCompressed)
-		//mapWriter := WriteMap(mapChannel, redirectFile)
-	*/
+	redirectChannel, mapChannel := BuildRedirectMap()
+	mapWriter := WriteMap(mapChannel, redirectCompressed)
+	//mapWriter := WriteMap(mapChannel, redirectFile)
 
-	//redirectChannel := RedirectTitleWriter(redirectFile)
-
-	//DistrbuteArticles(input, featuredChannel, redirectChannel, normalChannel)
-	DistrbuteArticles(input, featuredChannel, normalChannel)
+	DistrbuteArticles(input, featuredChannel, redirectChannel, normalChannel)
 
 	// Wait for all writers to finish
-	//<-mapWriter
+	<-mapWriter
 	<-featuredWriter
 	<-normalWriter
 
@@ -66,67 +59,7 @@ func saveSplitPages(input <-chan *PageContainer) {
 	// call but kept getting some EOF errors
 	featuredCompressed.Close()
 	normalCompressed.Close()
-	//redirectCompressed.Close()
-}
-
-func RedirectTitleWriter(w io.Writer) chan<- *PageContainer {
-	input := make(chan *PageContainer)
-
-	go func() {
-		var container *PageContainer
-		var ok bool
-
-		for {
-			container, ok = <-input
-
-			if !ok {
-				return
-			} else {
-				w.Write([]byte(fmt.Sprintf("%s\n", container.Page.Title)))
-			}
-		}
-	}()
-
-	return input
-}
-
-func splitDumpFile(input <-chan *PageContainer) {
-	c := 0
-	chunkSize := 10000
-
-	var page *PageContainer
-	var err error
-	var chunkFile *os.File
-	var encoder *json.Encoder
-	var ok bool
-
-	for {
-		c += 1
-
-		chunkFile, err = os.Create(fmt.Sprintf("data/parts/dumpFile-%04d.json", c))
-		//chunkFile = os.Stdout
-		if err != nil {
-			panic(err)
-		}
-
-		encoder = json.NewEncoder(chunkFile)
-
-		for i := 0; i < chunkSize; i++ {
-			page, ok = <-input
-			if !ok {
-				chunkFile.Close()
-				return
-			} else {
-				err = encoder.Encode(page)
-				if err != nil {
-					fmt.Printf("%#v\n", page)
-					panic(err)
-				}
-			}
-		}
-
-		chunkFile.Close()
-	}
+	redirectCompressed.Close()
 }
 
 func saveLanguageModel(input <-chan map[string]int, lmFile io.Writer) {
@@ -163,8 +96,7 @@ func ReadMap(r io.Reader) (map[string]int, error) {
 	return m, nil
 }
 
-func DistrbuteArticles(input <-chan *PageContainer, featuredChannel, normalChannel chan<- *PageContainer) <-chan bool {
-//func DistrbuteArticles(input <-chan *PageContainer, featuredChannel, redirectChannel, normalChannel chan<- *PageContainer) <-chan bool {
+func DistrbuteArticles(input <-chan *PageContainer, featuredChannel, redirectChannel, normalChannel chan<- *PageContainer) <-chan bool {
 	c := make(chan bool)
 
 	go func() {
@@ -176,7 +108,7 @@ func DistrbuteArticles(input <-chan *PageContainer, featuredChannel, normalChann
 
 			if !ok {
 				// channel was closed!
-				//close(redirectChannel)
+				close(redirectChannel)
 				close(featuredChannel)
 				close(normalChannel)
 				c <- true
@@ -184,8 +116,7 @@ func DistrbuteArticles(input <-chan *PageContainer, featuredChannel, normalChann
 			} else {
 
 				if container.IsRedirect {
-					//redirectChannel <- container
-					//<- container
+					redirectChannel <- container
 				} else if container.IsFeatured {
 					featuredChannel <- container
 				} else {

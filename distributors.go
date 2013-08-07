@@ -3,9 +3,7 @@ package main
 import (
 	"compress/bzip2"
 	"encoding/gob"
-	"encoding/json"
 	"io"
-	"os"
 )
 
 func distributorFromGob(r io.Reader) <-chan *PageContainer {
@@ -37,10 +35,6 @@ func distributorFromXML(r io.Reader) <-chan *PageContainer {
 	return containerDistributor(xmlPageDistributor(r))
 }
 
-func distributorFromJSONStdin() <-chan *PageContainer {
-	return jsonPageDistributor(os.Stdin)
-}
-
 // Wraps our pages in a struct that can hold features
 func containerDistributor(input <-chan *Page) <-chan *PageContainer {
 	output := make(chan *PageContainer, 50)
@@ -61,32 +55,6 @@ func containerDistributor(input <-chan *Page) <-chan *PageContainer {
 	}()
 
 	return output
-}
-
-func jsonPageDistributor(r io.Reader) <-chan *PageContainer {
-	decoder := json.NewDecoder(r)
-
-	channel := make(chan *PageContainer)
-
-	go func() {
-		var page *PageContainer
-		var err error
-
-		for {
-			err = decoder.Decode(&page)
-
-			if err == io.EOF {
-				close(channel)
-				return
-			} else if err != nil {
-				panic(err)
-			}
-
-			channel <- page
-		}
-	}()
-
-	return channel
 }
 
 // Takes an io.Reader to read pages from
