@@ -10,6 +10,7 @@ import (
 
 var (
 	pipelineFuncs = []FeatureFunc{
+		//(*PageContainer).LogIt,
 		(*PageContainer).SetIsRedirect,
 		(*PageContainer).SetIsFeatured,
 		(*PageContainer).SetPlainText,
@@ -18,7 +19,7 @@ var (
 		(*PageContainer).SetAvgSentenceLen,
 		(*PageContainer).SetWords,
 		(*PageContainer).SetNumWords,
-		(*PageContainer).SetAvgWordLen,
+		//(*PageContainer).SetAvgWordLen,
 		(*PageContainer).SetUnigrams,
 		(*PageContainer).SetBigrams,
 		(*PageContainer).SetTrigrams,
@@ -117,6 +118,10 @@ Avg Word Length:     %f
 // (*PageContainer).MethodName
 // Signiture: func(*PageContainer)
 // Which is the same as out FeatureFunc from pipeline
+
+func (container *PageContainer) LogIt() {
+	fmt.Println("Processing Page: (", container.Page.ID, ")", container.Page.Title)
+}
 
 func (container *PageContainer) SetIsFeatured() {
 	container.IsFeatured = strings.Contains(container.Page.Text(), "{{featured article}}")

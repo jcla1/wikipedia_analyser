@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
-	//"os"
 	"runtime"
+	"os"
 )
 
 var _ = fmt.Println
@@ -26,7 +26,7 @@ func init() {
 
 	flag.StringVar(&featuredFilePath, "featuredFile", "data/featured.gob.gzip", "place to store the featured pages")
 	flag.StringVar(&normalFilePath, "normalFile", "data/normal.gob.gzip", "place to store the normal pages")
-	flag.StringVar(&redirectFilePath, "redirectFile", "data/redirect.gob.gzip", "place to store the redirect map")
+	//flag.StringVar(&redirectFilePath, "redirectFile", "data/redirect.txt", "place to store the redirect map")
 
 	flag.StringVar(&nnFilePath, "nnFile", "data/nn.gob", "place to put the trained NN")
 
@@ -36,15 +36,12 @@ func init() {
 }
 
 func main() {
-	//runtime.GOMAXPROCS(runtime.NumCPU())
-	runtime.GOMAXPROCS(3)
+	runtime.GOMAXPROCS(runtime.NumCPU())
 	flag.Parse()
-	
-	testTiming(1, func() {
-		Part1()
-	})
 
-	/*file, err := os.Open(dumpFileName)
+	//Part1()
+
+	file, err := os.Open(dumpFileName)
 	if err != nil {
 		panic(err)
 	}
@@ -52,7 +49,8 @@ func main() {
 
 	pages := distributorFromXML(file)
 
-	pages = BuildPipeline(pages, pipelineFuncs)
-
-	featureStats(pages, 10)*/
+	//pages = BuildPipeline(pages, pipelineFuncs)
+	for p := range pages {
+		fmt.Println(p)
+	}
 }

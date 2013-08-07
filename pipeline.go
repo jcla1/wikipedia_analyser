@@ -16,20 +16,16 @@ func BuildPipeline(input <-chan *PageContainer, funcs []FeatureFunc) <-chan *Pag
 	out := input
 	for _, f := range funcs {
 		a, b, c, d := PipelineFuncWrapper(out, f), PipelineFuncWrapper(out, f), PipelineFuncWrapper(out, f), PipelineFuncWrapper(out, f)
-		//a, b := PipelineFuncWrapper(out, f), PipelineFuncWrapper(out, f)
+
 		tmp := make(chan *PageContainer)
 		go func() {
 			for {
 				select {
 				// select the routine that is "ready" for execution
-				case s := <-a:
-					tmp <- s
-				case s := <-b:
-					tmp <- s
-				case s := <-c:
-					tmp <- s
-				case s := <-d:
-					tmp <- s
+				case tmp <- <-a:
+				case tmp <- <-b:
+				case tmp <- <-c:
+				case tmp <- <-d:
 				}
 			}
 		}()

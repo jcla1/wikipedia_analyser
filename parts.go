@@ -33,17 +33,7 @@ func Part2NN() {
 
 	featuredPages := openCompressedPages(featuredFile)
 
-	redirectFile, err := os.Open(redirectFilePath)
-	if err != nil {
-		panic(err)
-	}
-
-	redirectMap, err := ReadMap(redirectFile)
-	if err != nil {
-		panic(err)
-	}
-
-	n := BuildTrainNN(featuredPages, redirectMap)
+	n := BuildTrainNN(featuredPages)
 	SaveNNToFile(n, nnFilePath)
 }
 
