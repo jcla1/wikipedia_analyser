@@ -5,7 +5,92 @@ import (
 	"encoding/gob"
 	"io"
 	"os"
+	"github.com/jcla1/matrix"
 )
+
+func LoadMatrixFromFile(path string) *matrix.Matrix {
+	file, err := os.Open(path)
+	if err != nil {
+		panic(err)
+	}
+	return LoadMatrix(file)
+}
+
+func LoadMatrix(r io.Reader) *matrix.Matrix {
+	var m *matrix.Matrix
+	decoder := gob.NewDecoder(r)
+	err := decoder.Decode(&m)
+	if err != nil {
+		panic(err)
+	}
+	return m
+}
+
+func SaveMatrixToFile(m *matrix.Matrix, path string) {
+	file, err := os.Create(path)
+	if err != nil {
+		panic(err)
+	}
+	SaveMatrix(m, file)
+}
+
+func SaveMatrix(m *matrix.Matrix, w io.Writer) {
+	encoder := gob.NewEncoder(w)
+	err := encoder.Encode(m)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func BuildLMModule(in <-chan *PageContainer) <-chan *PageContainer {
+	out := make(chan *PageContainer)
+
+	ngramFile, err := os.Create(ngramFilePath)
+	if err != nil {
+		panic(err)
+	}
+
+	newLine := []byte("\n")
+
+	go func() {
+		var c *PageContainer
+		var ok bool
+
+		for {
+			c, ok = <-in
+
+			if !ok {
+				close(out)
+				return
+			} else {
+				if !c.IsRedirect {
+					for k, v := range c.Unigrams {
+						for i := 0; i < v; i++ {
+							ngramFile.Write([]byte(k))
+							ngramFile.Write(newLine)
+						}
+					}
+					for k, v := range c.Bigrams {
+						for i := 0; i < v; i++ {
+							ngramFile.Write([]byte(k))
+							ngramFile.Write(newLine)
+						}
+					}
+					for k, v := range c.Trigrams {
+						for i := 0; i < v; i++ {
+							ngramFile.Write([]byte(k))
+							ngramFile.Write(newLine)
+						}
+					}
+				}
+
+				out <- c
+			}
+		}
+	}()
+
+	return out
+}
 
 func openCompressedPages(file io.Reader) <-chan *PageContainer {
 	decompressedStream, err := gzip.NewReader(file)
@@ -31,26 +116,14 @@ func saveSplitPages(input <-chan *PageContainer) {
 	normalCompressed := gzip.NewWriter(normalFile)
 	defer normalFile.Close()
 
-	redirectFile, err := os.Create(redirectFilePath)
-	if err != nil {
-		panic(err)
-	}
-	redirectCompressed := gzip.NewWriter(redirectFile)
-	defer featuredFile.Close()
-
 	featuredChannel, featuredWriter := ArticleWriter(featuredCompressed)
 	normalChannel, normalWriter := ArticleWriter(normalCompressed)
 	//featuredChannel, featuredWriter := ArticleWriter(featuredFile)
 	//normalChannel, normalWriter := ArticleWriter(normalFile)
 
-	redirectChannel, mapChannel := BuildRedirectMap()
-	mapWriter := WriteMap(mapChannel, redirectCompressed)
-	//mapWriter := WriteMap(mapChannel, redirectFile)
-
-	DistrbuteArticles(input, featuredChannel, redirectChannel, normalChannel)
+	DistrbuteArticles(input, featuredChannel, normalChannel)
 
 	// Wait for all writers to finish
-	<-mapWriter
 	<-featuredWriter
 	<-normalWriter
 
@@ -59,7 +132,6 @@ func saveSplitPages(input <-chan *PageContainer) {
 	// call but kept getting some EOF errors
 	featuredCompressed.Close()
 	normalCompressed.Close()
-	redirectCompressed.Close()
 }
 
 func saveLanguageModel(input <-chan map[string]int, lmFile io.Writer) {
@@ -96,7 +168,7 @@ func ReadMap(r io.Reader) (map[string]int, error) {
 	return m, nil
 }
 
-func DistrbuteArticles(input <-chan *PageContainer, featuredChannel, redirectChannel, normalChannel chan<- *PageContainer) <-chan bool {
+func DistrbuteArticles(input <-chan *PageContainer, featuredChannel, normalChannel chan<- *PageContainer) <-chan bool {
 	c := make(chan bool)
 
 	go func() {
@@ -108,18 +180,15 @@ func DistrbuteArticles(input <-chan *PageContainer, featuredChannel, redirectCha
 
 			if !ok {
 				// channel was closed!
-				close(redirectChannel)
 				close(featuredChannel)
 				close(normalChannel)
 				c <- true
 				return
 			} else {
 
-				if container.IsRedirect {
-					redirectChannel <- container
-				} else if container.IsFeatured {
+				if container.IsFeatured {
 					featuredChannel <- container
-				} else {
+				} else if !container.IsRedirect {
 					normalChannel <- container
 				}
 

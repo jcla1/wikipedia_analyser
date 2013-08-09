@@ -3,11 +3,12 @@ package main
 import (
 	"flag"
 	"fmt"
-	//"os"
+	"os"
 	"runtime"
 )
 
 var _ = fmt.Println
+var _ = os.Create
 
 var dumpFileName string
 
@@ -16,9 +17,9 @@ var (
 	normalFilePath   string
 	redirectFilePath string
 	nnFilePath       string
-	unigramFilePath  string
-	bigramFilePath   string
-	trigramFilePath  string
+	ngramFilePath    string
+	minMatrixFilePath string
+	rangeMatrixFilePath string
 )
 
 func init() {
@@ -29,20 +30,66 @@ func init() {
 	flag.StringVar(&redirectFilePath, "redirectFile", "data/redirect.gob.gzip", "place to store the redirect map")
 
 	flag.StringVar(&nnFilePath, "nnFile", "data/nn.gob", "place to put the trained NN")
+	flag.StringVar(&minMatrixFilePath, "minFile", "data/min.gob", "place to put the min vector")
+	flag.StringVar(&rangeMatrixFilePath, "rangeFile", "data/range.gob", "place to put the range vector")
 
-	flag.StringVar(&unigramFilePath, "unigramFile", "data/unigrams.gob", "place to put the Unigrams")
-	flag.StringVar(&bigramFilePath, "bigramFile", "data/bigrams.gob", "place to put the Bigrams")
-	flag.StringVar(&trigramFilePath, "trigramFile", "data/trigrams.gob", "place to put the Trigrams")
+	flag.StringVar(&ngramFilePath, "ngramFile", "data/ngrams.txt", "place to put the ngrams")
 }
 
 func main() {
 	//runtime.GOMAXPROCS(runtime.NumCPU())
-	runtime.GOMAXPROCS(3)
+	runtime.GOMAXPROCS(4)
 	flag.Parse()
-	
-	testTiming(1, func() {
+
+	/*testTiming(1, func() {
 		Part1()
-	})
+	})*/
+
+	/*testTiming(1, func() {
+		Part2NN()
+	})*/
+
+	/*min := LoadMatrixFromFile(minMatrixFilePath)
+	r := LoadMatrixFromFile(rangeMatrixFilePath)
+
+	normalFile, err := os.Open(normalFilePath)
+	if err != nil {
+		panic(err)
+	}
+	defer normalFile.Close()
+
+	normalPages := openCompressedPages(normalFile)
+
+	pages := Normalizer(Vectorizer(normalPages), min, r)
+
+	fmt.Println(<-pages)
+	fmt.Println()
+	fmt.Println(<-pages)*/
+
+	//n := LoadNNFromFile(nnFilePath)
+	//fmt.Println(n.Thetas[1])
+
+	normalFile, err := os.Open(normalFilePath)
+	if err != nil {
+		panic(err)
+	}
+	defer normalFile.Close()
+
+	normal := openCompressedPages(normalFile)
+	evaluateChannelIn := make(chan *PageContainer)
+
+	min := LoadMatrixFromFile(minMatrixFilePath)
+	r := LoadMatrixFromFile(rangeMatrixFilePath)
+	n := LoadNNFromFile(nnFilePath)
+
+	evaluateChannelOut := EvaluateNN(n, evaluateChannelIn, min, r)
+
+	for i := 0; i < 10; i++ {
+		p := <-normal
+		evaluateChannelIn <- p
+		fmt.Println(p)
+		fmt.Println(<-evaluateChannelOut)
+	}
 
 	/*file, err := os.Open(dumpFileName)
 	if err != nil {

@@ -10,6 +10,7 @@ import (
 
 var (
 	pipelineFuncs = []FeatureFunc{
+		Counter,
 		(*PageContainer).SetIsRedirect,
 		(*PageContainer).SetIsFeatured,
 		(*PageContainer).SetPlainText,
@@ -117,6 +118,17 @@ Avg Word Length:     %f
 // (*PageContainer).MethodName
 // Signiture: func(*PageContainer)
 // Which is the same as out FeatureFunc from pipeline
+
+var (
+	c = 0
+)
+
+func Counter(p *PageContainer) {
+	c += 1
+	if c%100 == 0 {
+		fmt.Println("Processed over:", c, "articles")
+	}
+}
 
 func (container *PageContainer) SetIsFeatured() {
 	container.IsFeatured = strings.Contains(container.Page.Text(), "{{featured article}}")

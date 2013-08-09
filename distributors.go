@@ -21,7 +21,9 @@ func distributorFromGob(r io.Reader) <-chan *PageContainer {
 				close(channel)
 				return
 			} else if err != nil {
-				panic(err)
+				//panic(err)
+				close(channel)
+				return
 			}
 
 			channel <- v

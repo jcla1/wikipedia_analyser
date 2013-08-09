@@ -7,13 +7,66 @@ import (
 	"github.com/jcla1/nn"
 	"io"
 	"os"
+	"fmt"
 )
 
 const (
 	numHidden   int = 3
 	numFeatures int = 9
-	numIter     int = 200
+	numIter     int = 3000
+	lambda      float64 = 0.1
 )
+
+
+// Returns min and range
+func FindNormalizedVectors(in <-chan *matrix.Matrix) (*matrix.Matrix, *matrix.Matrix) {
+	p := <-in
+	max := make([]float64, numFeatures)
+	min := make([]float64, numFeatures)
+
+	copy(max, p.Vals)
+	copy(min, p.Vals)
+
+	for p = range in {
+		for i, v := range p.Vals {
+			if max[i] < v {
+				max[i] = v
+			} 
+
+			if min[i] > v {
+				min[i] = v
+			}			
+		}
+	}
+
+	maxVec := matrix.FromSlice(max, numFeatures, 1)
+	minVec := matrix.FromSlice(min, numFeatures, 1)
+
+	r, _ := maxVec.Sub(minVec)
+	return minVec, r
+}
+
+func oneOver(i int, v float64) float64 {
+	return 1.0 / v
+}
+
+func Normalizer(in <-chan *matrix.Matrix, min, r *matrix.Matrix) <-chan *matrix.Matrix {
+	out := make(chan *matrix.Matrix)
+
+	r.Apply(oneOver)
+
+	var v *matrix.Matrix
+
+	go func() {
+		for vec := range in {
+			v, _ = vec.Sub(min)
+			out <- v.EWProd(r) 
+		}
+		close(out)
+	}()
+
+	return out
+}
 
 func SaveNNToFile(n *NN, path string) {
 	file, err := os.Create(path)
@@ -49,42 +102,23 @@ func SaveNN(n *NN, w io.Writer) {
 	}
 }
 
-func EvaluateNN(n *NN, input <-chan *PageContainer, redirectMap map[string]int) <-chan *PageContainer {
-	c := make(chan *PageContainer)
+func EvaluateNN(n *NN, input <-chan *PageContainer, min, r *matrix.Matrix) <-chan *matrix.Matrix {
+	c := make(chan *matrix.Matrix)
+
+	tes := MakeTrainingEx(Normalizer(Vectorizer(input), min, r))
 
 	go func() {
-		var features []float64
-		var m *matrix.Matrix
-		var container *PageContainer
-		var ok bool
 		var te nn.TrainingExample
+		var ok bool		
 
 		for {
+			te, ok = <-tes
+
 			if !ok {
 				close(c)
 				return
 			} else {
-				features = []float64{
-					container.AvgSentenceLen,
-					container.LinkDensity,
-					float64(container.NumLinks),
-					float64(container.NumExternalLinks),
-					float64(container.NumHeadings),
-					float64(container.NumRefs),
-					float64(container.NumCategories),
-					float64(container.NumSentences),
-					float64(container.NumWords),
-					float64(redirectMap[container.Page.Title]),
-
-					//float64(len(container.Unigrams)),
-					//float64(len(container.Bigrams)),
-					//float64(len(container.Trigrams)),
-				}
-				m = matrix.FromSlice(features, len(features), 1)
-				te = nn.TrainingExample{m, m}
-
-				container.NNOutput = nn.Hypothesis(n.Thetas, te)
-				c <- container
+				c <- nn.Hypothesis(n.Thetas, te)
 			}
 		}
 
@@ -93,9 +127,9 @@ func EvaluateNN(n *NN, input <-chan *PageContainer, redirectMap map[string]int) 
 	return c
 }
 
-func BuildTrainNN(input <-chan *PageContainer, redirectMap map[string]int) *NN {
-	d := FeatureSlicer(FeatureVectors(input, redirectMap))
-	n := NewNN([]int{numFeatures, numHidden, numFeatures}, 0)
+func BuildTrainNN(input <-chan *PageContainer, min, r *matrix.Matrix) *NN {
+	d := FeatureSlicer(MakeTrainingEx(Normalizer(Vectorizer(input), min, r)))
+	n := NewNN([]int{numFeatures, numHidden, numFeatures}, lambda)
 	TrainNN(n, d, numIter)
 
 	return n
@@ -103,11 +137,13 @@ func BuildTrainNN(input <-chan *PageContainer, redirectMap map[string]int) *NN {
 
 func TrainNN(n *NN, data []nn.TrainingExample, iter int) {
 	f := SetupCostGradFunc(n, data)
-	n.Thetas = ReshapeParams(minimize.Fmincg(f, UnrollParams(n.Thetas), iter, false), n.LayerSizes)
+	fmt.Println("Cost before:", nn.CostFunction(data, n.Thetas, n.Lambda))
+	n.Thetas = ReshapeParams(minimize.Fmincg(f, UnrollParams(n.Thetas), iter, true), n.LayerSizes)
+	fmt.Println("Cost after:", nn.CostFunction(data, n.Thetas, n.Lambda))
 }
 
 func FeatureSlicer(input <-chan nn.TrainingExample) []nn.TrainingExample {
-	features := make([]nn.TrainingExample, 0, 100)
+	features := make([]nn.TrainingExample, 0, 2000)
 	for v := range input {
 		features = append(features, v)
 	}
@@ -177,12 +213,30 @@ func UnrollParams(vals []*matrix.Matrix) *matrix.Matrix {
 	return matrix.FromSlice(unrolled, 1, len(unrolled))
 }
 
-func FeatureVectors(input <-chan *PageContainer, redirectMap map[string]int) <-chan nn.TrainingExample {
-	outputChannel := make(chan nn.TrainingExample)
+func MakeFeatureVector(container *PageContainer) *matrix.Matrix {
+	features := []float64{
+		container.AvgSentenceLen,
+		container.LinkDensity,
+		float64(container.NumLinks),
+		float64(container.NumExternalLinks),
+		float64(container.NumHeadings),
+		float64(container.NumRefs),
+		float64(container.NumCategories),
+		float64(container.NumSentences),
+		float64(container.NumWords),
+
+		//float64(len(container.Unigrams)),
+		//float64(len(container.Bigrams)),
+		//float64(len(container.Trigrams)),
+	}
+
+	return matrix.FromSlice(features, len(features), 1)
+}
+
+func Vectorizer(input <-chan *PageContainer) <-chan *matrix.Matrix {
+	outputChannel := make(chan *matrix.Matrix)
 
 	go func() {
-		var features []float64
-		var m *matrix.Matrix
 		var container *PageContainer
 		var ok bool
 
@@ -194,23 +248,29 @@ func FeatureVectors(input <-chan *PageContainer, redirectMap map[string]int) <-c
 				close(outputChannel)
 				return
 			} else {
-				features = []float64{
-					container.AvgSentenceLen,
-					container.LinkDensity,
-					float64(container.NumLinks),
-					float64(container.NumExternalLinks),
-					float64(container.NumHeadings),
-					float64(container.NumRefs),
-					float64(container.NumCategories),
-					float64(container.NumSentences),
-					float64(container.NumWords),
-					float64(redirectMap[container.Page.Title]),
+				outputChannel <- MakeFeatureVector(container)
+			}
+		}
+	}()
 
-					//float64(len(container.Unigrams)),
-					//float64(len(container.Bigrams)),
-					//float64(len(container.Trigrams)),
-				}
-				m = matrix.FromSlice(features, len(features), 1)
+	return outputChannel
+}
+
+func MakeTrainingEx(input <-chan *matrix.Matrix) <-chan nn.TrainingExample {
+	outputChannel := make(chan nn.TrainingExample)
+
+	go func() {
+		var m *matrix.Matrix
+		var ok bool
+
+		for {
+			m, ok = <-input
+
+			if !ok {
+				// channel closed!
+				close(outputChannel)
+				return
+			} else {
 				outputChannel <- nn.TrainingExample{m, m}
 			}
 		}
