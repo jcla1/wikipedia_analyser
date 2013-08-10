@@ -1,8 +1,8 @@
 package main
 
 import (
-	"os"
 	"fmt"
+	"os"
 )
 
 var _ = fmt.Println
@@ -23,7 +23,9 @@ func Part1() {
 
 func Part2() {
 
-	//Part2NN()
+	Part2Normalize()
+	Part2NN()
+	Part2MaxPredictionErr()
 }
 
 func Part2Normalize() {
@@ -59,4 +61,21 @@ func Part2NN() {
 
 	n := BuildTrainNN(featuredPages, min, r)
 	SaveNNToFile(n, nnFilePath)
+}
+
+func Part2MaxPredictionErr() {
+	featuredFile, err := os.Open(featuredFilePath)
+	if err != nil {
+		panic(err)
+	}
+	defer featuredFile.Close()
+
+	input := openCompressedPages(featuredFile)
+	min := LoadMatrixFromFile(minMatrixFilePath)
+	r := LoadMatrixFromFile(rangeMatrixFilePath)
+	n := LoadNNFromFile(nnFilePath)
+
+	devMax := FindPredictionErrDeviation(input, n, min, r)
+
+	SaveMatrixToFile(devMax, )
 }

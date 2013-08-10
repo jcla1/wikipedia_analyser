@@ -2,21 +2,20 @@ package main
 
 import (
 	"encoding/gob"
+	"fmt"
 	"github.com/jcla1/matrix"
 	"github.com/jcla1/minimize"
 	"github.com/jcla1/nn"
 	"io"
 	"os"
-	"fmt"
 )
 
 const (
-	numHidden   int = 3
-	numFeatures int = 9
-	numIter     int = 3000
-	lambda      float64 = 0.1
+	numHidden   int     = 3
+	numFeatures int     = 9
+	numIter     int     = 3000
+	lambda      float64 = 0.0
 )
-
 
 // Returns min and range
 func FindNormalizedVectors(in <-chan *matrix.Matrix) (*matrix.Matrix, *matrix.Matrix) {
@@ -31,11 +30,11 @@ func FindNormalizedVectors(in <-chan *matrix.Matrix) (*matrix.Matrix, *matrix.Ma
 		for i, v := range p.Vals {
 			if max[i] < v {
 				max[i] = v
-			} 
+			}
 
 			if min[i] > v {
 				min[i] = v
-			}			
+			}
 		}
 	}
 
@@ -53,19 +52,53 @@ func oneOver(i int, v float64) float64 {
 func Normalizer(in <-chan *matrix.Matrix, min, r *matrix.Matrix) <-chan *matrix.Matrix {
 	out := make(chan *matrix.Matrix)
 
-	r.Apply(oneOver)
+	rOver := r.Copy()
+	rOver.Apply(oneOver)
 
 	var v *matrix.Matrix
 
 	go func() {
 		for vec := range in {
 			v, _ = vec.Sub(min)
-			out <- v.EWProd(r) 
+			out <- v.EWProd(rOver)
 		}
 		close(out)
 	}()
 
 	return out
+}
+
+// Returns min, max of the deviation of the predictionError
+func FindPredictionErrDeviation(input <-chan *PageContainer, n *NN, min, r *matrix.Matrix) *matrix.Matrix {
+	evaluateChannelIn := make(chan *PageContainer)
+	vectorizerChannelIn := make(chan *PageContainer)
+
+	evaluateChannelOut := EvaluateNN(n, evaluateChannelIn, min, r)
+	vectorizerChannelOut := Normalizer(Vectorizer(vectorizerChannelIn), min, r)
+
+	devMax := make([]float64, numFeatures)
+	for i, _ := range devMax {
+		devMax[i] = 0.0
+	}
+
+	for p := range input {
+		evaluateChannelIn <- p
+		vectorizerChannelIn <- p	
+		out := <-evaluateChannelOut
+		in := <-vectorizerChannelOut
+
+		diff, _ := in.Sub(out)
+		predictionErr := diff.Power(2.0)
+	
+		for i, v := range predictionErr.Vals {
+			if devMax[i] < v {
+				devMax[i] = v
+			}
+		}
+
+	}
+
+	return matrix.FromSlice(devMax, numFeatures, 1)
 }
 
 func SaveNNToFile(n *NN, path string) {
@@ -109,7 +142,7 @@ func EvaluateNN(n *NN, input <-chan *PageContainer, min, r *matrix.Matrix) <-cha
 
 	go func() {
 		var te nn.TrainingExample
-		var ok bool		
+		var ok bool
 
 		for {
 			te, ok = <-tes

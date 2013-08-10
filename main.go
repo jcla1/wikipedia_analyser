@@ -13,13 +13,14 @@ var _ = os.Create
 var dumpFileName string
 
 var (
-	featuredFilePath string
-	normalFilePath   string
-	redirectFilePath string
-	nnFilePath       string
-	ngramFilePath    string
-	minMatrixFilePath string
+	featuredFilePath    string
+	normalFilePath      string
+	redirectFilePath    string
+	nnFilePath          string
+	ngramFilePath       string
+	minMatrixFilePath   string
 	rangeMatrixFilePath string
+	predictionErrMatrixPath string
 )
 
 func init() {
@@ -32,6 +33,7 @@ func init() {
 	flag.StringVar(&nnFilePath, "nnFile", "data/nn.gob", "place to put the trained NN")
 	flag.StringVar(&minMatrixFilePath, "minFile", "data/min.gob", "place to put the min vector")
 	flag.StringVar(&rangeMatrixFilePath, "rangeFile", "data/range.gob", "place to put the range vector")
+	flag.StringVar(&predictionErrMatrixPath, "predictionErrMatrix", "data/predictionErrMatrixPath.gob", "place to put the predictionErrMatrixPath")
 
 	flag.StringVar(&ngramFilePath, "ngramFile", "data/ngrams.txt", "place to put the ngrams")
 }
@@ -68,28 +70,6 @@ func main() {
 
 	//n := LoadNNFromFile(nnFilePath)
 	//fmt.Println(n.Thetas[1])
-
-	normalFile, err := os.Open(normalFilePath)
-	if err != nil {
-		panic(err)
-	}
-	defer normalFile.Close()
-
-	normal := openCompressedPages(normalFile)
-	evaluateChannelIn := make(chan *PageContainer)
-
-	min := LoadMatrixFromFile(minMatrixFilePath)
-	r := LoadMatrixFromFile(rangeMatrixFilePath)
-	n := LoadNNFromFile(nnFilePath)
-
-	evaluateChannelOut := EvaluateNN(n, evaluateChannelIn, min, r)
-
-	for i := 0; i < 10; i++ {
-		p := <-normal
-		evaluateChannelIn <- p
-		fmt.Println(p)
-		fmt.Println(<-evaluateChannelOut)
-	}
 
 	/*file, err := os.Open(dumpFileName)
 	if err != nil {

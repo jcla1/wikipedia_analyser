@@ -3,9 +3,9 @@ package main
 import (
 	"compress/gzip"
 	"encoding/gob"
+	"github.com/jcla1/matrix"
 	"io"
 	"os"
-	"github.com/jcla1/matrix"
 )
 
 func LoadMatrixFromFile(path string) *matrix.Matrix {
