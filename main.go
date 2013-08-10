@@ -46,7 +46,10 @@ func main() {
 
 	min := LoadMatrixFromFile(minMatrixFilePath)
 	r := LoadMatrixFromFile(rangeMatrixFilePath)
+
 	thresholdMat := LoadMatrixFromFile(thresholdMatFilePath)
+	thresholdMat = thresholdMat.Scale(0.8)
+
 	n := LoadNNFromFile(nnFilePath)
 
 	normalFile, err := os.Open(normalFilePath)
@@ -60,7 +63,7 @@ func main() {
 	featureChanIn := make(chan *PageContainer)
 	processed := ProcessRecords(Normalizer(Vectorizer(featureChanIn), min, r), n, thresholdMat)
 
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 30; i++ {
 		p := <-normalPages
 		featureChanIn <- p
 		fmt.Println(p.Page.Title)

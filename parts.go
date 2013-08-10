@@ -7,8 +7,6 @@ import (
 
 var _ = fmt.Println
 
-var thresholdFactor = 1.0
-
 func Part1() {
 	file, err := os.Open(dumpFileName)
 	if err != nil {
@@ -80,7 +78,6 @@ func Part2MaxPredictionErr() {
 	devMax, means := FindPredictionErrDeviation(input, n, min, r)
 
 	thresholdMat, _ := devMax.Add(means)
-	thresholdMat = thresholdMat.Scale(thresholdFactor)
 
 	SaveMatrixToFile(thresholdMat, thresholdMatFilePath)
 }
