@@ -134,3 +134,17 @@ func calcStats(containers []*PageContainer, f func(*PageContainer) float64) (flo
 
 	return math.Sqrt(devSum / float64(len(vals))), avg / float64(len(containers))
 }
+
+func calcStdDev(nums []float64) (float64, float64) {
+	mean := float64(0)
+	for _, v := range nums {
+		mean += v
+	}
+	mean = mean / float64(len(nums))
+	devSum := float64(0)
+	for _, v := range nums {
+		devSum += (float64(v) - mean) * (float64(v) - mean)
+	}
+
+	return math.Sqrt(devSum / float64(len(nums))), mean
+}

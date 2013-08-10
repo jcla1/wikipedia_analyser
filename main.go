@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+//	"github.com/jcla1/matrix"
 )
 
 var _ = fmt.Println
@@ -13,14 +14,14 @@ var _ = os.Create
 var dumpFileName string
 
 var (
-	featuredFilePath    string
-	normalFilePath      string
-	redirectFilePath    string
-	nnFilePath          string
-	ngramFilePath       string
-	minMatrixFilePath   string
-	rangeMatrixFilePath string
-	predictionErrMatrixPath string
+	featuredFilePath     string
+	normalFilePath       string
+	redirectFilePath     string
+	nnFilePath           string
+	ngramFilePath        string
+	minMatrixFilePath    string
+	rangeMatrixFilePath  string
+	thresholdMatFilePath string
 )
 
 func init() {
@@ -33,7 +34,7 @@ func init() {
 	flag.StringVar(&nnFilePath, "nnFile", "data/nn.gob", "place to put the trained NN")
 	flag.StringVar(&minMatrixFilePath, "minFile", "data/min.gob", "place to put the min vector")
 	flag.StringVar(&rangeMatrixFilePath, "rangeFile", "data/range.gob", "place to put the range vector")
-	flag.StringVar(&predictionErrMatrixPath, "predictionErrMatrix", "data/predictionErrMatrixPath.gob", "place to put the predictionErrMatrixPath")
+	flag.StringVar(&thresholdMatFilePath, "thresholdMatrix", "data/thresholdMatrix.gob", "place to put the thresholdMatrix")
 
 	flag.StringVar(&ngramFilePath, "ngramFile", "data/ngrams.txt", "place to put the ngrams")
 }
@@ -42,6 +43,29 @@ func main() {
 	//runtime.GOMAXPROCS(runtime.NumCPU())
 	runtime.GOMAXPROCS(4)
 	flag.Parse()
+
+	min := LoadMatrixFromFile(minMatrixFilePath)
+	r := LoadMatrixFromFile(rangeMatrixFilePath)
+	thresholdMat := LoadMatrixFromFile(thresholdMatFilePath)
+	n := LoadNNFromFile(nnFilePath)
+
+	normalFile, err := os.Open(normalFilePath)
+	if err != nil {
+		panic(err)
+	}
+	defer normalFile.Close()
+
+	normalPages := openCompressedPages(normalFile)
+
+	featureChanIn := make(chan *PageContainer)
+	processed := ProcessRecords(Normalizer(Vectorizer(featureChanIn), min, r), n, thresholdMat)
+
+	for i := 0; i < 10; i++ {
+		p := <-normalPages
+		featureChanIn <- p
+		fmt.Println(p.Page.Title)
+		fmt.Println((<-processed).Vals)
+	}
 
 	/*testTiming(1, func() {
 		Part1()

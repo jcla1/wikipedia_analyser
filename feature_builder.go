@@ -17,6 +17,39 @@ const (
 	lambda      float64 = 0.0
 )
 
+func ProcessRecords(input <-chan *matrix.Matrix, n *NN, thresholdMat *matrix.Matrix) <-chan *matrix.Matrix {
+	out := make(chan *matrix.Matrix)
+
+	evaluateChannelIn := make(chan *matrix.Matrix)
+
+	evaluateChannelOut := EvaluateNN(n, evaluateChannelIn)
+
+	go func() {
+		for m := range input {
+			evaluateChannelIn <- m
+			evOut := <-evaluateChannelOut
+
+			diff, _ := m.Sub(evOut)
+			predictionErr := diff.Power(2.0)
+
+			wellnessSlice := make([]float64, numFeatures)
+
+			for i, _ := range wellnessSlice {
+				if predictionErr.Vals[i] <= thresholdMat.Vals[i] {
+					wellnessSlice[i] = 1.0
+				} else {
+					wellnessSlice[i] = 0.0
+				}
+			}
+
+			out <- matrix.FromSlice(wellnessSlice, numFeatures, 1)
+		}
+		close(out)
+	}()
+
+	return out
+}
+
 // Returns min and range
 func FindNormalizedVectors(in <-chan *matrix.Matrix) (*matrix.Matrix, *matrix.Matrix) {
 	p := <-in
@@ -69,27 +102,27 @@ func Normalizer(in <-chan *matrix.Matrix, min, r *matrix.Matrix) <-chan *matrix.
 }
 
 // Returns min, max of the deviation of the predictionError
-func FindPredictionErrDeviation(input <-chan *PageContainer, n *NN, min, r *matrix.Matrix) *matrix.Matrix {
+func FindPredictionErrDeviation(input <-chan *PageContainer, n *NN, min, r *matrix.Matrix) (*matrix.Matrix, *matrix.Matrix) {
 	evaluateChannelIn := make(chan *PageContainer)
 	vectorizerChannelIn := make(chan *PageContainer)
 
-	evaluateChannelOut := EvaluateNN(n, evaluateChannelIn, min, r)
+	evaluateChannelOut := EvaluateNN(n, Normalizer(Vectorizer(evaluateChannelIn), min, r))
 	vectorizerChannelOut := Normalizer(Vectorizer(vectorizerChannelIn), min, r)
 
-	devMax := make([]float64, numFeatures)
+	/*devMax := make([]float64, numFeatures)
 	for i, _ := range devMax {
 		devMax[i] = 0.0
 	}
 
 	for p := range input {
 		evaluateChannelIn <- p
-		vectorizerChannelIn <- p	
+		vectorizerChannelIn <- p
 		out := <-evaluateChannelOut
 		in := <-vectorizerChannelOut
 
 		diff, _ := in.Sub(out)
 		predictionErr := diff.Power(2.0)
-	
+
 		for i, v := range predictionErr.Vals {
 			if devMax[i] < v {
 				devMax[i] = v
@@ -98,7 +131,39 @@ func FindPredictionErrDeviation(input <-chan *PageContainer, n *NN, min, r *matr
 
 	}
 
-	return matrix.FromSlice(devMax, numFeatures, 1)
+	close(evaluateChannelIn)
+	close(vectorizerChannelIn)
+
+	return matrix.FromSlice(devMax, numFeatures, 1)*/
+
+	vals := make([][]float64, numFeatures)
+	for i, _ := range vals {
+		vals[i] = make([]float64, 0, 1000)
+	}
+
+	for p := range input {
+		evaluateChannelIn <- p
+		vectorizerChannelIn <- p
+		out := <-evaluateChannelOut
+		in := <-vectorizerChannelOut
+
+		diff, _ := in.Sub(out)
+		predictionErr := diff.Power(2.0)
+
+		for i, v := range predictionErr.Vals {
+			vals[i] = append(vals[i], v)
+		}
+
+	}
+
+	devs := make([]float64, numFeatures)
+	means := make([]float64, numFeatures)
+
+	for i, _ := range vals {
+		devs[i], means[i] = calcStdDev(vals[i])
+	}
+
+	return matrix.FromSlice(devs, numFeatures, 1), matrix.FromSlice(means, numFeatures, 1)
 }
 
 func SaveNNToFile(n *NN, path string) {
@@ -135,10 +200,10 @@ func SaveNN(n *NN, w io.Writer) {
 	}
 }
 
-func EvaluateNN(n *NN, input <-chan *PageContainer, min, r *matrix.Matrix) <-chan *matrix.Matrix {
+func EvaluateNN(n *NN, input <-chan *matrix.Matrix) <-chan *matrix.Matrix {
 	c := make(chan *matrix.Matrix)
 
-	tes := MakeTrainingEx(Normalizer(Vectorizer(input), min, r))
+	tes := MakeTrainingEx(input)
 
 	go func() {
 		var te nn.TrainingExample
