@@ -44,13 +44,13 @@ func main() {
 	runtime.GOMAXPROCS(4)
 	flag.Parse()
 
-	min := LoadMatrixFromFile(minMatrixFilePath)
+	/*min := LoadMatrixFromFile(minMatrixFilePath)
 	r := LoadMatrixFromFile(rangeMatrixFilePath)
 
 	thresholdMat := LoadMatrixFromFile(thresholdMatFilePath)
 	thresholdMat = thresholdMat.Scale(0.8)
 
-	n := LoadNNFromFile(nnFilePath)
+	n := LoadNNFromFile(nnFilePath)*/
 
 	/*normalFile, err := os.Open(normalFilePath)
 	if err != nil {
@@ -68,7 +68,9 @@ func main() {
 
 	pages := distributorFromXML(file)
 
-	featureChanIn := make(chan *PageContainer)
+	fmt.Println(<-pages)
+
+	/*featureChanIn := make(chan *PageContainer)
 	processed := ProcessRecords(Normalizer(Vectorizer(featureChanIn), min, r), n, thresholdMat)
 
 	for i := 0; i < 30; i++ {
@@ -76,7 +78,7 @@ func main() {
 		featureChanIn <- p
 		fmt.Println(p.Page.Title)
 		fmt.Println((<-processed).Vals)
-	}
+	}*/
 
 	/*testTiming(1, func() {
 		Part1()
