@@ -52,19 +52,27 @@ func main() {
 
 	n := LoadNNFromFile(nnFilePath)
 
-	normalFile, err := os.Open(normalFilePath)
+	/*normalFile, err := os.Open(normalFilePath)
 	if err != nil {
 		panic(err)
 	}
 	defer normalFile.Close()
 
-	normalPages := openCompressedPages(normalFile)
+	normalPages := openCompressedPages(normalFile)*/
+
+	file, err := os.Open(dumpFileName)
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+
+	pages := distributorFromXML(file)
 
 	featureChanIn := make(chan *PageContainer)
 	processed := ProcessRecords(Normalizer(Vectorizer(featureChanIn), min, r), n, thresholdMat)
 
 	for i := 0; i < 30; i++ {
-		p := <-normalPages
+		p := <-pages
 		featureChanIn <- p
 		fmt.Println(p.Page.Title)
 		fmt.Println((<-processed).Vals)
